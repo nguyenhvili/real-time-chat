@@ -8,7 +8,7 @@ namespace RealTimeChat.Server.Tests.Services;
 
 public class MessageCacheTests
 {
-    private MessageCache CreateCache(int maxMessages = 50)
+    private static MessageCache CreateCache(int maxMessages = 50)
     {
         var settings = Options.Create(new ChatSettings { MaxCachedMessages = maxMessages });
         return new MessageCache(settings);
@@ -58,7 +58,7 @@ public class MessageCacheTests
     public void AddMessage_AddsMessageToBeginning()
     {
         var cache = CreateCache();
-        cache.Initialize(new List<MessageEntity>());
+        cache.Initialize([]);
 
         var message = new MessageEntity { Id = 1, SenderName = "User1", Text = "Hello", Timestamp = DateTime.UtcNow };
         cache.AddMessage(message);
@@ -103,15 +103,15 @@ public class MessageCacheTests
     public void Initialize_ClearsPreviousMessages()
     {
         var cache = CreateCache();
-        cache.Initialize(new List<MessageEntity>
-        {
+        cache.Initialize(
+        [
             new() { Id = 1, SenderName = "User1", Text = "Hello", Timestamp = DateTime.UtcNow }
-        });
+        ]);
 
-        cache.Initialize(new List<MessageEntity>
-        {
+        cache.Initialize(
+        [
             new() { Id = 2, SenderName = "User2", Text = "World", Timestamp = DateTime.UtcNow }
-        });
+        ]);
 
         var result = cache.GetMessages();
         Assert.Single(result);

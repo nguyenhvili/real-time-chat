@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using RealTimeChat.Database;
 using RealTimeChat.Database.Models;
 using RealTimeChat.Models.Models;

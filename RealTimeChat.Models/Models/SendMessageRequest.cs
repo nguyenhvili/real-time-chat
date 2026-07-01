@@ -6,8 +6,8 @@ public class SendMessageRequest
 {
     [Required]
     [MaxLength(100)]
-    public string SenderName { get; set; } = string.Empty;
+    public required string SenderName { get; set; }
 
     [Required]
-    public string Text { get; set; } = string.Empty;
+    public required string Text { get; set; }
 }

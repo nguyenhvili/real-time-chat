@@ -1,21 +1,13 @@
 using System.Net;
-using System.Net.Http.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
 using RealTimeChat.Models.Models;
 using Xunit;
 
 namespace RealTimeChat.Server.Tests.Controllers;
 
-public class MessagesControllerTests : IClassFixture<WebApplicationFactory<Program>>
+public class MessagesControllerTests(WebApplicationFactory<Program> factory) : IClassFixture<WebApplicationFactory<Program>>
 {
-    private readonly WebApplicationFactory<Program> _factory;
-    private readonly HttpClient _client;
-
-    public MessagesControllerTests(WebApplicationFactory<Program> factory)
-    {
-        _factory = factory;
-        _client = factory.CreateClient();
-    }
+    private readonly HttpClient _client = factory.CreateClient();
 
     [Fact]
     public async Task GetMessages_ReturnsOk()
@@ -95,7 +87,7 @@ public class MessagesControllerTests : IClassFixture<WebApplicationFactory<Progr
     [Fact]
     public async Task SendMessage_AndGetMessages_ReturnsPostedMessage()
     {
-        var client = _factory.CreateClient();
+        var client = factory.CreateClient();
         var request = new SendMessageRequest
         {
             SenderName = "IntegrationUser",

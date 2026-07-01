@@ -2,10 +2,8 @@ using System.Collections.Concurrent;
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using RealTimeChat.Database;
-using RealTimeChat.Database.Models;
 using RealTimeChat.Models.Models;
 using RealTimeChat.Server.Configuration;
 
