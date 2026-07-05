@@ -1,3 +1,6 @@
 <Solution>
-  <Project Path="RealTimeChat/RealTimeChat.csproj" />
+  <Project Path="RealTimeChat.Database/RealTimeChat.Database.csproj" />
+  <Project Path="RealTimeChat.Models/RealTimeChat.Models.csproj" />
+  <Project Path="RealTimeChat.Server.Tests/RealTimeChat.Server.Tests.csproj" />
+  <Project Path="RealTimeChat/RealTimeChat.Server.csproj" />
 </Solution>
