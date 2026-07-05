@@ -4,10 +4,10 @@ namespace RealTimeChat.Models.Models;
 
 public class SendMessageRequest
 {
-    [Required]
-    [MaxLength(100)]
-    public required string SenderName { get; set; }
+    public string? Type { get; set; }
 
-    [Required]
-    public required string Text { get; set; }
+    [MaxLength(100)]
+    public string? SenderName { get; set; }
+
+    public string? Text { get; set; }
 }

@@ -48,15 +48,20 @@ public class ChatWebSocketTests(WebApplicationFactory<Program> factory) : IClass
     }
 
     [Fact]
-    public async Task WebSocket_ReceivesHistoryOnConnect()
+    public async Task WebSocket_ReceivesHistoryOnInit()
     {
         using var ws = await ConnectWebSocketAsync();
 
-        var message = await ReceiveMessageAsync(ws);
-        var data = JsonDocument.Parse(message);
+        // Send init request
+        await SendMessageAsync(ws, new { Type = "init" });
 
-        Assert.True(data.RootElement.TryGetProperty("type", out var type));
-        Assert.Equal("history", type.GetString());
+        // Receive history response
+        var json = await ReceiveMessageAsync(ws);
+        var response = JsonSerializer.Deserialize<ChatResponse>(json);
+
+        Assert.NotNull(response);
+        Assert.NotNull(response.Messages);
+        Assert.NotNull(response.Errors);
     }
 
     [Fact]
@@ -64,11 +69,9 @@ public class ChatWebSocketTests(WebApplicationFactory<Program> factory) : IClass
     {
         using var ws = await ConnectWebSocketAsync();
 
-        // Receive history first
-        await ReceiveMessageAsync(ws);
-
         var request = new SendMessageRequest
         {
+            Type = "message",
             SenderName = "WSTestUser",
             Text = "WebSocket test message"
         };
@@ -76,111 +79,126 @@ public class ChatWebSocketTests(WebApplicationFactory<Program> factory) : IClass
         await SendMessageAsync(ws, request);
 
         // Should receive the broadcast message
-        var response = await ReceiveMessageAsync(ws, new CancellationTokenSource(5000).Token);
-        var data = JsonDocument.Parse(response);
+        var json = await ReceiveMessageAsync(ws, new CancellationTokenSource(1000).Token);
+        var response = JsonSerializer.Deserialize<ChatResponse>(json);
 
-        Assert.True(data.RootElement.TryGetProperty("type", out var type));
-        Assert.Equal("message", type.GetString());
+        Assert.NotNull(response);
+        Assert.NotNull(response.Messages);
+        Assert.NotNull(response.Errors);
+        Assert.Single(response.Messages);
+        Assert.Empty(response.Errors); // Sender receives no errors for valid message
     }
 
     [Fact]
     public async Task WebSocket_RejectsMessageWithEmptyName()
     {
         using var ws = await ConnectWebSocketAsync();
-        await ReceiveMessageAsync(ws); // Receive history
 
         var request = new SendMessageRequest
         {
+            Type = "message",
             SenderName = "",
             Text = "Test"
         };
 
         await SendMessageAsync(ws, request);
 
-        // Should not receive any response (message silently dropped)
-        var cts = new CancellationTokenSource(1000);
-        await Assert.ThrowsAsync<OperationCanceledException>(async () =>
-        {
-            await ReceiveMessageAsync(ws, cts.Token);
-        });
+        // Should receive error response
+        var json = await ReceiveMessageAsync(ws, new CancellationTokenSource(1000).Token);
+        var response = JsonSerializer.Deserialize<ChatResponse>(json);
+
+        Assert.NotNull(response);
+        Assert.NotNull(response.Errors);
+        Assert.NotEmpty(response.Errors); // Should have validation error
+        Assert.NotNull(response.Messages);
+        Assert.Empty(response.Messages); // No message should be saved
     }
 
     [Fact]
     public async Task WebSocket_RejectsMessageWithEmptyText()
     {
         using var ws = await ConnectWebSocketAsync();
-        await ReceiveMessageAsync(ws); // Receive history
 
         var request = new SendMessageRequest
         {
+            Type = "message",
             SenderName = "TestUser",
             Text = ""
         };
 
         await SendMessageAsync(ws, request);
 
-        // Should not receive any response (message silently dropped)
-        var cts = new CancellationTokenSource(1000);
-        await Assert.ThrowsAsync<OperationCanceledException>(async () =>
-        {
-            await ReceiveMessageAsync(ws, cts.Token);
-        });
+        // Should receive error response
+        var json = await ReceiveMessageAsync(ws, new CancellationTokenSource(1000).Token);
+        var response = JsonSerializer.Deserialize<ChatResponse>(json);
+
+        Assert.NotNull(response);
+        Assert.NotNull(response.Errors);
+        Assert.NotEmpty(response.Errors); // Should have validation error
+        Assert.NotNull(response.Messages);
+        Assert.Empty(response.Messages); // No message should be saved
     }
 
     [Fact]
     public async Task WebSocket_RejectsMessageTooLong()
     {
         using var ws = await ConnectWebSocketAsync();
-        await ReceiveMessageAsync(ws); // Receive history
 
         // Get max message length from configuration (default is 1000)
         var request = new SendMessageRequest
         {
+            Type = "message",
             SenderName = "TestUser",
             Text = new string('A', 1001) // Exceed limit
         };
 
         await SendMessageAsync(ws, request);
 
-        // Should not receive any response (message silently dropped)
-        var cts = new CancellationTokenSource(1000);
-        await Assert.ThrowsAsync<OperationCanceledException>(async () =>
-        {
-            await ReceiveMessageAsync(ws, cts.Token);
-        });
+        // Should receive error response
+        var json = await ReceiveMessageAsync(ws, new CancellationTokenSource(1000).Token);
+        var response = JsonSerializer.Deserialize<ChatResponse>(json);
+
+        Assert.NotNull(response);
+        Assert.NotNull(response.Errors);
+        Assert.NotEmpty(response.Errors); // Should have validation error
+        Assert.NotNull(response.Messages);
+        Assert.Empty(response.Messages); // No message should be saved
     }
 
     [Fact]
     public async Task WebSocket_RejectsSenderNameTooLong()
     {
         using var ws = await ConnectWebSocketAsync();
-        await ReceiveMessageAsync(ws); // Receive history
 
         // Get max sender name length from configuration (default is 100)
         var request = new SendMessageRequest
         {
+            Type = "message",
             SenderName = new string('A', 101), // Exceed limit
             Text = "Test message"
         };
 
         await SendMessageAsync(ws, request);
 
-        // Should not receive any response (message silently dropped)
-        var cts = new CancellationTokenSource(1000);
-        await Assert.ThrowsAsync<OperationCanceledException>(async () =>
-        {
-            await ReceiveMessageAsync(ws, cts.Token);
-        });
+        // Should receive error response
+        var json = await ReceiveMessageAsync(ws, new CancellationTokenSource(1000).Token);
+        var response = JsonSerializer.Deserialize<ChatResponse>(json);
+
+        Assert.NotNull(response);
+        Assert.NotNull(response.Errors);
+        Assert.NotEmpty(response.Errors); // Should have validation error
+        Assert.NotNull(response.Messages);
+        Assert.Empty(response.Messages); // No message should be saved
     }
 
     [Fact]
     public async Task WebSocket_AcceptsMessageAtMaxLength()
     {
         using var ws = await ConnectWebSocketAsync();
-        await ReceiveMessageAsync(ws); // Receive history
 
         var request = new SendMessageRequest
         {
+            Type = "message",
             SenderName = "TestUser",
             Text = new string('A', 1000) // Exactly at limit
         };
@@ -188,21 +206,24 @@ public class ChatWebSocketTests(WebApplicationFactory<Program> factory) : IClass
         await SendMessageAsync(ws, request);
 
         // Should receive the broadcast message
-        var response = await ReceiveMessageAsync(ws, new CancellationTokenSource(5000).Token);
-        var data = JsonDocument.Parse(response);
+        var json = await ReceiveMessageAsync(ws, new CancellationTokenSource(1000).Token);
+        var response = JsonSerializer.Deserialize<ChatResponse>(json);
 
-        Assert.True(data.RootElement.TryGetProperty("type", out var type));
-        Assert.Equal("message", type.GetString());
+        Assert.NotNull(response);
+        Assert.NotNull(response.Messages);
+        Assert.NotNull(response.Errors);
+        Assert.Single(response.Messages);
+        Assert.Empty(response.Errors);
     }
 
     [Fact]
     public async Task WebSocket_AcceptsSenderNameAtMaxLength()
     {
         using var ws = await ConnectWebSocketAsync();
-        await ReceiveMessageAsync(ws); // Receive history
 
         var request = new SendMessageRequest
         {
+            Type = "message",
             SenderName = new string('A', 100), // Exactly at limit
             Text = "Test message"
         };
@@ -210,11 +231,14 @@ public class ChatWebSocketTests(WebApplicationFactory<Program> factory) : IClass
         await SendMessageAsync(ws, request);
 
         // Should receive the broadcast message
-        var response = await ReceiveMessageAsync(ws, new CancellationTokenSource(5000).Token);
-        var data = JsonDocument.Parse(response);
+        var json = await ReceiveMessageAsync(ws, new CancellationTokenSource(1000).Token);
+        var response = JsonSerializer.Deserialize<ChatResponse>(json);
 
-        Assert.True(data.RootElement.TryGetProperty("type", out var type));
-        Assert.Equal("message", type.GetString());
+        Assert.NotNull(response);
+        Assert.NotNull(response.Messages);
+        Assert.NotNull(response.Errors);
+        Assert.Single(response.Messages);
+        Assert.Empty(response.Errors);
     }
 
     [Fact]
@@ -223,11 +247,9 @@ public class ChatWebSocketTests(WebApplicationFactory<Program> factory) : IClass
         using var ws1 = await ConnectWebSocketAsync();
         using var ws2 = await ConnectWebSocketAsync();
 
-        await ReceiveMessageAsync(ws1); // History for ws1
-        await ReceiveMessageAsync(ws2); // History for ws2
-
         var request = new SendMessageRequest
         {
+            Type = "message",
             SenderName = "Broadcaster",
             Text = "Broadcast test"
         };
@@ -235,13 +257,25 @@ public class ChatWebSocketTests(WebApplicationFactory<Program> factory) : IClass
         await SendMessageAsync(ws1, request);
 
         // Both clients should receive the message
-        var response1 = await ReceiveMessageAsync(ws1, new CancellationTokenSource(5000).Token);
-        var response2 = await ReceiveMessageAsync(ws2, new CancellationTokenSource(5000).Token);
+        var json1 = await ReceiveMessageAsync(ws1, new CancellationTokenSource(1000).Token);
+        var json2 = await ReceiveMessageAsync(ws2, new CancellationTokenSource(1000).Token);
 
-        var data1 = JsonDocument.Parse(response1);
-        var data2 = JsonDocument.Parse(response2);
+        var response1 = JsonSerializer.Deserialize<ChatResponse>(json1);
+        var response2 = JsonSerializer.Deserialize<ChatResponse>(json2);
 
-        Assert.Equal("message", data1.RootElement.GetProperty("type").GetString());
-        Assert.Equal("message", data2.RootElement.GetProperty("type").GetString());
+        Assert.NotNull(response1);
+        Assert.NotNull(response2);
+
+        // Both should have messages
+        Assert.NotNull(response1.Messages);
+        Assert.NotNull(response2.Messages);
+        Assert.Single(response1.Messages);
+        Assert.Single(response2.Messages);
+
+        // Sender (ws1) has no errors, receiver (ws2) should also have no errors
+        Assert.NotNull(response1.Errors);
+        Assert.NotNull(response2.Errors);
+        Assert.Empty(response1.Errors);
+        Assert.Empty(response2.Errors);
     }
 }

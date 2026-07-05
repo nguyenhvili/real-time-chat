@@ -20,6 +20,7 @@ builder.Services.AddSingleton<MessageCache>();
 builder.Services.AddSingleton<ChatWebSocketHandler>();
 builder.Services.AddScoped<MessageRepository>();
 builder.Services.AddSingleton<MessageMapper>();
+builder.Services.AddSingleton<MessageProcessing>();
 
 var app = builder.Build();
 

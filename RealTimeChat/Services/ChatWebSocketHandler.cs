@@ -3,13 +3,12 @@ using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Options;
-using RealTimeChat.Database;
 using RealTimeChat.Models.Models;
 using RealTimeChat.Server.Configuration;
 
 namespace RealTimeChat.Server.Services;
 
-public class ChatWebSocketHandler(IServiceScopeFactory scopeFactory, MessageCache cache, MessageMapper mapper, IOptions<ChatSettings> settings)
+public class ChatWebSocketHandler(IServiceScopeFactory scopeFactory, MessageProcessing messageProcessing, IOptions<ChatSettings> settings)
 {
     private readonly ConcurrentDictionary<Guid, (WebSocket Socket, SemaphoreSlim WriteLock)> _clients = new();
     private readonly ChatSettings _settings = settings.Value;
@@ -29,7 +28,6 @@ public class ChatWebSocketHandler(IServiceScopeFactory scopeFactory, MessageCach
 
         try
         {
-            await SendHistoryAsync(webSocket, writeLock, cancellationToken);
             await ReceiveLoopAsync(webSocket, cancellationToken);
         }
         finally
@@ -39,19 +37,6 @@ public class ChatWebSocketHandler(IServiceScopeFactory scopeFactory, MessageCach
             if (webSocket.State == WebSocketState.Open)
                 await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Disconnected", CancellationToken.None);
         }
-    }
-
-    private async Task SendHistoryAsync(WebSocket webSocket, SemaphoreSlim writeLock, CancellationToken cancellationToken)
-    {
-        if (!cache.IsInitialized)
-        {
-            using var scope = scopeFactory.CreateScope();
-            var repository = scope.ServiceProvider.GetRequiredService<MessageRepository>();
-            var messages = await repository.GetRecentMessagesAsync(cancellationToken);
-            cache.Initialize(messages);
-        }
-
-        await SendJsonAsync(webSocket, writeLock, new { type = "history", messages = cache.GetMessages() }, cancellationToken);
     }
 
     private async Task ReceiveLoopAsync(WebSocket webSocket, CancellationToken cancellationToken)
@@ -76,40 +61,60 @@ public class ChatWebSocketHandler(IServiceScopeFactory scopeFactory, MessageCach
                 continue;
 
             var json = Encoding.UTF8.GetString(ms.ToArray());
-            await ProcessIncomingAsync(json);
+            await ProcessIncomingAsync(webSocket, json);
         }
     }
 
-    private async Task ProcessIncomingAsync(string json)
+    private async Task ProcessIncomingAsync(WebSocket senderSocket, string json)
     {
         SendMessageRequest? request = JsonSerializer.Deserialize<SendMessageRequest>(json);
 
-        if (request is null || string.IsNullOrWhiteSpace(request.SenderName) || string.IsNullOrWhiteSpace(request.Text))
+        if (request is null)
             return;
 
-        // Check message and sender name length limits
-        if (request.Text.Length > _settings.MaxMessageLength || request.SenderName.Length > _settings.MaxSenderNameLength)
+        var senderClient = _clients.Values.FirstOrDefault(c => c.Socket == senderSocket);
+        if (senderClient == default)
             return;
 
-        var message = mapper.ToEntity(request);
-
-        using (var scope = scopeFactory.CreateScope())
+        // If the connection is initial, instead send the message history to the sender only
+        if (request.Type == "init")
         {
-            var dbContext = scope.ServiceProvider.GetRequiredService<ChatDbContext>();
-            dbContext.Messages.Add(message);
-            await dbContext.SaveChangesAsync(CancellationToken.None);
+            var response = await messageProcessing.InitializeHistoryAsync(scopeFactory, CancellationToken.None);
+            await SendJsonAsync(senderSocket, senderClient.WriteLock, response, CancellationToken.None);
         }
-
-        cache.AddMessage(message);
-
-        await BroadcastAsync(new { type = "message", message });
+        // If the message type is message, then broadcast the message to all clients
+        else if (request.Type == "message")
+        {
+            // Process and broadcast the message
+            var response = await messageProcessing.ProcessMessageAsync(request, scopeFactory);
+            if (response.Errors.Count != 0)
+            {
+                await SendJsonAsync(senderSocket, senderClient.WriteLock, response, CancellationToken.None);
+            }
+            await BroadcastAsync(senderSocket, response);
+        }
     }
 
-    private async Task BroadcastAsync(object payload)
+    private async Task BroadcastAsync(WebSocket senderSocket, ChatResponse response, bool excludeSender = true)
     {
-        var bytes = JsonSerializer.SerializeToUtf8Bytes(payload);
-        var tasks = _clients.Values.Select(c => SendBytesAsync(c.Socket, c.WriteLock, bytes));
-        await Task.WhenAll(tasks);
+        // Broadcast message to all clients (without errors)
+        if (response.Messages.Count > 0)
+        {
+            var broadcastBytes = JsonSerializer.SerializeToUtf8Bytes(response);
+
+            var broadcastTasks = _clients.Values
+                .Where(c => c.Socket != senderSocket && excludeSender)
+                .Select(c => SendBytesAsync(c.Socket, c.WriteLock, broadcastBytes));
+
+            await Task.WhenAll(broadcastTasks);
+        }
+
+        // Send to sender (with errors if any)
+        var senderClient = _clients.Values.FirstOrDefault(c => c.Socket == senderSocket);
+        if (senderClient != default)
+        {
+            await SendJsonAsync(senderSocket, senderClient.WriteLock, response, CancellationToken.None);
+        }
     }
 
     private static async Task SendJsonAsync(WebSocket webSocket, SemaphoreSlim writeLock, object payload, CancellationToken cancellationToken)
