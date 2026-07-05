@@ -25,8 +25,8 @@ namespace RealTimeChat.Server.Services
             return new MessageEntity
             {
                 Timestamp = DateTime.UtcNow,
-                SenderName = request.SenderName,
-                Text = request.Text
+                SenderName = request.SenderName!,
+                Text = request.Text!
             };
         }
     }

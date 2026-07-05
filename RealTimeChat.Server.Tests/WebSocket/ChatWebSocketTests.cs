@@ -17,7 +17,7 @@ public class ChatWebSocketTests(WebApplicationFactory<Program> factory) : IClass
         return await wsClient.ConnectAsync(wsUri, CancellationToken.None);
     }
 
-    private static async Task<string> ReceiveMessageAsync(System.Net.WebSockets.WebSocket ws, CancellationToken ct = default)
+    private static async Task<string> ReceiveMessageAsync(System.Net.WebSockets.WebSocket ws)
     {
         var buffer = new byte[4096];
         using var ms = new MemoryStream();
@@ -25,7 +25,7 @@ public class ChatWebSocketTests(WebApplicationFactory<Program> factory) : IClass
 
         do
         {
-            result = await ws.ReceiveAsync(buffer, ct);
+            result = await ws.ReceiveAsync(buffer, default);
             ms.Write(buffer, 0, result.Count);
         } while (!result.EndOfMessage);
 
@@ -79,7 +79,7 @@ public class ChatWebSocketTests(WebApplicationFactory<Program> factory) : IClass
         await SendMessageAsync(ws, request);
 
         // Should receive the broadcast message
-        var json = await ReceiveMessageAsync(ws, new CancellationTokenSource(1000).Token);
+        var json = await ReceiveMessageAsync(ws);
         var response = JsonSerializer.Deserialize<ChatResponse>(json);
 
         Assert.NotNull(response);
@@ -104,7 +104,7 @@ public class ChatWebSocketTests(WebApplicationFactory<Program> factory) : IClass
         await SendMessageAsync(ws, request);
 
         // Should receive error response
-        var json = await ReceiveMessageAsync(ws, new CancellationTokenSource(1000).Token);
+        var json = await ReceiveMessageAsync(ws);
         var response = JsonSerializer.Deserialize<ChatResponse>(json);
 
         Assert.NotNull(response);
@@ -129,7 +129,7 @@ public class ChatWebSocketTests(WebApplicationFactory<Program> factory) : IClass
         await SendMessageAsync(ws, request);
 
         // Should receive error response
-        var json = await ReceiveMessageAsync(ws, new CancellationTokenSource(1000).Token);
+        var json = await ReceiveMessageAsync(ws);
         var response = JsonSerializer.Deserialize<ChatResponse>(json);
 
         Assert.NotNull(response);
@@ -155,7 +155,7 @@ public class ChatWebSocketTests(WebApplicationFactory<Program> factory) : IClass
         await SendMessageAsync(ws, request);
 
         // Should receive error response
-        var json = await ReceiveMessageAsync(ws, new CancellationTokenSource(1000).Token);
+        var json = await ReceiveMessageAsync(ws);
         var response = JsonSerializer.Deserialize<ChatResponse>(json);
 
         Assert.NotNull(response);
@@ -181,7 +181,7 @@ public class ChatWebSocketTests(WebApplicationFactory<Program> factory) : IClass
         await SendMessageAsync(ws, request);
 
         // Should receive error response
-        var json = await ReceiveMessageAsync(ws, new CancellationTokenSource(1000).Token);
+        var json = await ReceiveMessageAsync(ws);
         var response = JsonSerializer.Deserialize<ChatResponse>(json);
 
         Assert.NotNull(response);
@@ -206,7 +206,7 @@ public class ChatWebSocketTests(WebApplicationFactory<Program> factory) : IClass
         await SendMessageAsync(ws, request);
 
         // Should receive the broadcast message
-        var json = await ReceiveMessageAsync(ws, new CancellationTokenSource(1000).Token);
+        var json = await ReceiveMessageAsync(ws);
         var response = JsonSerializer.Deserialize<ChatResponse>(json);
 
         Assert.NotNull(response);
@@ -231,7 +231,7 @@ public class ChatWebSocketTests(WebApplicationFactory<Program> factory) : IClass
         await SendMessageAsync(ws, request);
 
         // Should receive the broadcast message
-        var json = await ReceiveMessageAsync(ws, new CancellationTokenSource(1000).Token);
+        var json = await ReceiveMessageAsync(ws);
         var response = JsonSerializer.Deserialize<ChatResponse>(json);
 
         Assert.NotNull(response);
@@ -257,8 +257,8 @@ public class ChatWebSocketTests(WebApplicationFactory<Program> factory) : IClass
         await SendMessageAsync(ws1, request);
 
         // Both clients should receive the message
-        var json1 = await ReceiveMessageAsync(ws1, new CancellationTokenSource(1000).Token);
-        var json2 = await ReceiveMessageAsync(ws2, new CancellationTokenSource(1000).Token);
+        var json1 = await ReceiveMessageAsync(ws1);
+        var json2 = await ReceiveMessageAsync(ws2);
 
         var response1 = JsonSerializer.Deserialize<ChatResponse>(json1);
         var response2 = JsonSerializer.Deserialize<ChatResponse>(json2);

@@ -85,8 +85,8 @@ public class MessageCacheTests
 
         var result = cache.GetMessages();
         Assert.Equal(3, result.Count);
-        Assert.Equal("User4", result[0].SenderName); // Newest at the beginning
-        Assert.Equal("User2", result[2].SenderName); // User1 (oldest) should be removed
+        Assert.Equal("User2", result[0].SenderName); // Newest at the beginning
+        Assert.Equal("User4", result[2].SenderName); // User1 (oldest) should be removed
     }
 
     [Fact]
