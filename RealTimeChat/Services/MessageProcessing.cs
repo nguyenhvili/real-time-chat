@@ -40,7 +40,7 @@ public class MessageProcessing(MessageCache cache, MessageMapper mapper, IOption
         using var scope = serviceScopeFactory.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<ChatDbContext>();
         dbContext.Messages.Add(message);
-        await dbContext.SaveChangesAsync(CancellationToken.None);
+        await dbContext.SaveChangesAsync();
 
         cache.AddMessage(message);
         response.Messages.Add(mapper.ToModel(message));
@@ -57,13 +57,13 @@ public class MessageProcessing(MessageCache cache, MessageMapper mapper, IOption
         return response;
     }
 
-    public async Task<ChatResponse> InitializeHistoryAsync(IServiceScopeFactory serviceScopeFactory, CancellationToken cancellationToken = default)
+    public async Task<ChatResponse> InitializeHistoryAsync(IServiceScopeFactory serviceScopeFactory)
     {
         if (!cache.IsInitialized)
         {
             using var scope = serviceScopeFactory.CreateScope();
             var repository = scope.ServiceProvider.GetRequiredService<MessageRepository>();
-            var messages = await repository.GetRecentMessagesAsync(cancellationToken);
+            var messages = await repository.GetRecentMessagesAsync();
             cache.Initialize(messages);
         }
 

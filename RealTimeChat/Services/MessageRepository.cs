@@ -10,12 +10,11 @@ public class MessageRepository(ChatDbContext db, IOptions<ChatSettings> settings
 {
     private readonly int _maxMessages = settings.Value.MaxCachedMessages;
 
-    public async Task<List<MessageEntity>> GetRecentMessagesAsync(CancellationToken cancellationToken = default)
+    public async Task<List<MessageEntity>> GetRecentMessagesAsync()
     {
         return await db.Messages
-            .OrderByDescending(m => m.Timestamp)
-            .Take(_maxMessages)
             .OrderBy(m => m.Timestamp)
-            .ToListAsync(cancellationToken);
+            .Take(_maxMessages)
+            .ToListAsync();
     }
 }

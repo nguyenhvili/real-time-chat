@@ -47,8 +47,8 @@ public class MessageCache(IOptions<ChatSettings> settings)
         try
         {
             if (_messages.Count == _maxMessages)
-                _messages.RemoveLast();
-            _messages.AddFirst(message);
+                _messages.RemoveFirst();
+            _messages.AddLast(message);
         }
         finally
         {

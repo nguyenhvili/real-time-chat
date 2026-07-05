@@ -6,7 +6,7 @@ namespace RealTimeChat.Server.Controllers;
 
 [ApiController]
 [Route("[controller]")]
-public class MessagesController(MessageProcessing messageProcessing, IServiceScopeFactory serviceScopeFactory) : ControllerBase
+public class MessagesController(MessageProcessing messageProcessing, IServiceScopeFactory serviceScopeFactory, ChatWebSocketHandler webSocketHandler) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<ChatResponse>> GetMessages()
@@ -19,6 +19,7 @@ public class MessagesController(MessageProcessing messageProcessing, IServiceSco
     public async Task<ActionResult<ChatResponse>> SendMessage([FromBody] SendMessageRequest request)
     {
         var response = await messageProcessing.ProcessMessageAsync(request, serviceScopeFactory);
+        await webSocketHandler.BroadcastAsync(null, response, false);
 
         if (response.Errors.Count > 0)
         {

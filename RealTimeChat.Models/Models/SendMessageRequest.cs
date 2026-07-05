@@ -7,7 +7,7 @@ public class SendMessageRequest
     public string? Type { get; set; }
 
     [MaxLength(100)]
-    public required string SenderName { get; set; }
+    public string? SenderName { get; set; }
 
-    public required string Text { get; set; }
+    public string? Text { get; set; }
 }

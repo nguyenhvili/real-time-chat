@@ -79,7 +79,7 @@ public class ChatWebSocketHandler(IServiceScopeFactory scopeFactory, MessageProc
         // If the connection is initial, instead send the message history to the sender only
         if (request.Type == "init")
         {
-            var response = await messageProcessing.InitializeHistoryAsync(scopeFactory, CancellationToken.None);
+            var response = await messageProcessing.InitializeHistoryAsync(scopeFactory);
             await SendJsonAsync(senderSocket, senderClient.WriteLock, response, CancellationToken.None);
         }
         // If the message type is message, then broadcast the message to all clients
@@ -95,7 +95,7 @@ public class ChatWebSocketHandler(IServiceScopeFactory scopeFactory, MessageProc
         }
     }
 
-    private async Task BroadcastAsync(WebSocket senderSocket, ChatResponse response, bool excludeSender = true)
+    public async Task BroadcastAsync(WebSocket? senderSocket, ChatResponse response, bool excludeSender = true)
     {
         // Broadcast message to all clients (without errors)
         if (response.Messages.Count > 0)
@@ -103,7 +103,7 @@ public class ChatWebSocketHandler(IServiceScopeFactory scopeFactory, MessageProc
             var broadcastBytes = JsonSerializer.SerializeToUtf8Bytes(response);
 
             var broadcastTasks = _clients.Values
-                .Where(c => c.Socket != senderSocket && excludeSender)
+                .Where(c => c.Socket != senderSocket || !excludeSender)
                 .Select(c => SendBytesAsync(c.Socket, c.WriteLock, broadcastBytes));
 
             await Task.WhenAll(broadcastTasks);
@@ -120,19 +120,19 @@ public class ChatWebSocketHandler(IServiceScopeFactory scopeFactory, MessageProc
     private static async Task SendJsonAsync(WebSocket webSocket, SemaphoreSlim writeLock, object payload, CancellationToken cancellationToken)
     {
         var bytes = JsonSerializer.SerializeToUtf8Bytes(payload);
-        await SendBytesAsync(webSocket, writeLock, bytes, cancellationToken);
+        await SendBytesAsync(webSocket, writeLock, bytes);
     }
 
-    private static async Task SendBytesAsync(WebSocket webSocket, SemaphoreSlim writeLock, byte[] bytes, CancellationToken cancellationToken = default)
+    private static async Task SendBytesAsync(WebSocket webSocket, SemaphoreSlim writeLock, byte[] bytes)
     {
         if (webSocket.State != WebSocketState.Open)
             return;
 
-        await writeLock.WaitAsync(CancellationToken.None);
+        await writeLock.WaitAsync();
         try
         {
             if (webSocket.State == WebSocketState.Open)
-                await webSocket.SendAsync(bytes, WebSocketMessageType.Text, endOfMessage: true, cancellationToken);
+                await webSocket.SendAsync(bytes, WebSocketMessageType.Text, endOfMessage: true, default);
         }
         catch (WebSocketException)
         {

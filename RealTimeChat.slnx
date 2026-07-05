@@ -1,4 +1,5 @@
 <Solution>
+  <Project Path="RealTimeChat.Client/RealTimeChat.Client.csproj" Id="dd77b6e6-6931-43ba-9db7-10a642d58401" />
   <Project Path="RealTimeChat.Database/RealTimeChat.Database.csproj" />
   <Project Path="RealTimeChat.Models/RealTimeChat.Models.csproj" />
   <Project Path="RealTimeChat.Server.Tests/RealTimeChat.Server.Tests.csproj" />
